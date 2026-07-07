@@ -1,0 +1,14 @@
+[
+  {
+    "query": "What is self-attention?",
+    "answer": "Self-attention correlates different positions of a single sequence to compute a representation.",
+    "context": "Self-attention, also called intra-attention, is an attention mechanism relating different positions of a single sequence in order to compute a representation of the sequence.",
+    "human_score": 1.0
+  },
+  {
+    "query": "Is gravity real?",
+    "answer": "Gravity is a force that repels objects from earth.",
+    "context": "Gravity is a natural phenomenon by which all things with mass or energy are brought toward one another, attracting them to earth.",
+    "human_score": 0.0
+  }
+]
