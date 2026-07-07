@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     await db_pool.disconnect()
 
 from backend.api.ingest import router as ingest_router
+from backend.api.query import router as query_router
 
 app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
 
@@ -39,6 +40,8 @@ app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
 FastAPIInstrumentor.instrument_app(app)
 
 app.include_router(ingest_router)
+app.include_router(query_router)
+
 
 
 @app.middleware("http")
