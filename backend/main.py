@@ -31,10 +31,15 @@ async def lifespan(app: FastAPI):
     # Shutdown actions
     await db_pool.disconnect()
 
+from backend.api.ingest import router as ingest_router
+
 app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
 
 # Instrument FastAPI App with OpenTelemetry
 FastAPIInstrumentor.instrument_app(app)
+
+app.include_router(ingest_router)
+
 
 @app.middleware("http")
 async def add_metrics_middleware(request, call_next):
