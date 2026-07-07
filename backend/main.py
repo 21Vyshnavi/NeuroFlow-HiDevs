@@ -36,6 +36,7 @@ from backend.api.query import router as query_router
 from backend.api.rating import router as rating_router
 from backend.api.compare import router as compare_router
 from backend.api.pipelines import router as pipelines_router
+from backend.api.finetune import router as finetune_router
 
 app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
 
@@ -47,6 +48,8 @@ app.include_router(query_router)
 app.include_router(rating_router)
 app.include_router(compare_router)
 app.include_router(pipelines_router)
+app.include_router(finetune_router)
+
 
 
 
