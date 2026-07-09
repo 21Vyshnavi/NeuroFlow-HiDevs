@@ -1,0 +1,84 @@
+{
+  "title": "System Overview",
+  "uid": "system-overview",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Queries per minute (rate)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "rate(neuroflow_queries_total[1m]) * 60",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "P50/P95 Retrieval Latency",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(neuroflow_retrieval_latency_seconds_bucket[5m]))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(neuroflow_retrieval_latency_seconds_bucket[5m]))",
+          "legendFormat": "P50",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "P50/P95 Generation Latency",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(neuroflow_generation_latency_seconds_bucket[5m]))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(neuroflow_generation_latency_seconds_bucket[5m]))",
+          "legendFormat": "P50",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "LLM Cost per Hour",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(neuroflow_llm_cost_usd_sum[1m])) by (model) * 3600",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Queue Depth",
+      "gridPos": { "x": 0, "y": 16, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "neuroflow_queue_depth",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Circuit Breakers Open",
+      "gridPos": { "x": 6, "y": 16, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "neuroflow_circuit_breakers_open",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

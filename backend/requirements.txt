@@ -10,3 +10,4 @@ opentelemetry-exporter-otlp
 prometheus-client
 python-dotenv
 httpx
+opentelemetry-exporter-prometheus

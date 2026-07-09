@@ -39,7 +39,7 @@ class NeuroFlowClient:
                 raise ValueError(f"Unknown provider: {config.provider}")
         return self._providers[key]
 
-    async def _increment_metrics(self, model: str, cost: float):
+    async def _increment_metrics(self, model: str, cost: float, provider: str = "unknown", task_type: str = "generation"):
         try:
             r = redis.Redis(
                 host=settings.redis_host,
@@ -51,6 +51,13 @@ class NeuroFlowClient:
             await r.aclose()
         except Exception as e:
             logger.error(f"Failed to write metrics to Redis: {e}")
+            
+        try:
+            from backend.monitoring.metrics import lm_calls_total, llm_cost
+            lm_calls_total.labels(provider=provider, model=model, task_type=task_type).inc()
+            llm_cost.labels(model=model).observe(cost)
+        except ImportError:
+            pass
 
     async def chat(self, messages: list[ChatMessage], criteria: RoutingCriteria, **kwargs) -> GenerationResult:
         model_config = await self.router.route(criteria)
@@ -86,7 +93,7 @@ class NeuroFlowClient:
                     span.set_attribute("cost_usd", res.cost_usd)
                     span.set_attribute("latency_ms", res.latency_ms)
                     
-                    await self._increment_metrics(res.model, res.cost_usd)
+                    await self._increment_metrics(res.model, res.cost_usd, provider=provider.__class__.__name__)
                     return res
                 except Exception as e:
                     logger.warning(f"Model call failed for {model_name}. Error: {e}. Trying next fallback...")

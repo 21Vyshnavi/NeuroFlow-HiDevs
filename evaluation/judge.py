@@ -71,6 +71,17 @@ class EvaluationJudge:
                         overall_score
                     )
 
+                # Fetch pipeline_id to update metrics
+                row = await conn.fetchrow("SELECT pipeline_id FROM pipeline_runs WHERE id = $1", uuid.UUID(run_id))
+                pipeline_id = str(row["pipeline_id"]) if row and row["pipeline_id"] else "default"
+
+            try:
+                from backend.monitoring.metrics import eval_faithfulness, eval_overall
+                eval_faithfulness.labels(pipeline_id=pipeline_id).set(faith)
+                eval_overall.labels(pipeline_id=pipeline_id).set(overall_score)
+            except ImportError:
+                pass
+
             return {
                 "eval_id": str(eval_id),
                 "faithfulness": faith,

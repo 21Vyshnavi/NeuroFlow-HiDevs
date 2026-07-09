@@ -22,6 +22,14 @@ async def worker_loop():
     logger.info("Worker polling queue:ingest...")
     while True:
         try:
+            # Update queue depth metric
+            try:
+                q_len = await r.llen("queue:ingest")
+                from backend.monitoring.metrics import queue_depth
+                queue_depth.set(q_len)
+            except Exception:
+                pass
+
             # Block pop job from redis queue
             job = await r.brpop("queue:ingest", timeout=5)
             if job:

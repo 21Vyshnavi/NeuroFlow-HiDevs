@@ -52,9 +52,18 @@ class CircuitBreaker:
             # Call failed
             failures = await r.incr(f"circuit:{self.name}:failure_count")
             if failures >= self.failure_threshold or state == "HALF_OPEN":
+                was_closed = state != "OPEN"
                 await r.set(f"circuit:{self.name}:state", "OPEN")
                 await r.set(f"circuit:{self.name}:opened_at", time.time())
                 logger.error(f"Circuit breaker {self.name} tripped to OPEN.")
+                
+                try:
+                    from backend.monitoring.metrics import circuit_breaker_trips, active_circuit_breakers_open
+                    if was_closed:
+                        circuit_breaker_trips.labels(provider=self.name).inc()
+                        active_circuit_breakers_open.inc()
+                except ImportError:
+                    pass
         else:
             # Call succeeded
             if state == "HALF_OPEN":
@@ -62,6 +71,12 @@ class CircuitBreaker:
                 await r.set(f"circuit:{self.name}:state", "CLOSED")
                 await r.set(f"circuit:{self.name}:failure_count", 0)
                 logger.info(f"Circuit breaker {self.name} successfully CLOSED.")
+                
+                try:
+                    from backend.monitoring.metrics import active_circuit_breakers_open
+                    active_circuit_breakers_open.dec()
+                except ImportError:
+                    pass
             elif state == "CLOSED":
                 await r.set(f"circuit:{self.name}:failure_count", 0)
 
