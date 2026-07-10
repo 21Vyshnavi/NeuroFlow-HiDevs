@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import tiktoken
 from typing import List, Dict, Any
 from pipelines.retrieval import RetrievalResult

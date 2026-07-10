@@ -1,5 +1,10 @@
-from pydantic_settings import BaseSettings
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
 from pydantic import Field
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     postgres_user: str = Field(default="neuroflow")

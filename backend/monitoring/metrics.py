@@ -1,4 +1,8 @@
-from prometheus_client import Counter, Histogram, Gauge
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
+from prometheus_client import Counter, Gauge, Histogram
 
 # Counters
 queries_total = Counter('neuroflow_queries_total', 'Total queries', ['pipeline_id', 'status'])

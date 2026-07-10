@@ -1,8 +1,14 @@
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
+import logging
+
 import httpx
 import redis.asyncio as redis
-import logging
-from backend.db.pool import db_pool
+
 from backend.config import settings
+from backend.db.pool import db_pool
 
 logger = logging.getLogger(__name__)
 

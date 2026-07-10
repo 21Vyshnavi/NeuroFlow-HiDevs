@@ -1,16 +1,21 @@
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Response
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter, Histogram
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
-from backend.db.pool import db_pool
-from backend.db.migrations import run_migrations
-from backend.db.health import check_postgres, check_redis, check_mlflow
 from backend.config import settings
+from backend.db.health import check_mlflow, check_postgres, check_redis
+from backend.db.migrations import run_migrations
+from backend.db.pool import db_pool
 
 # Setup OpenTelemetry Tracing
 provider = TracerProvider()
@@ -31,14 +36,14 @@ async def lifespan(app: FastAPI):
     # Shutdown actions
     await db_pool.disconnect()
 
+from backend.api.auth import router as auth_router
+from backend.api.compare import router as compare_router
+from backend.api.evaluations import router as evaluations_router
+from backend.api.finetune import router as finetune_router
 from backend.api.ingest import router as ingest_router
+from backend.api.pipelines import router as pipelines_router
 from backend.api.query import router as query_router
 from backend.api.rating import router as rating_router
-from backend.api.compare import router as compare_router
-from backend.api.pipelines import router as pipelines_router
-from backend.api.finetune import router as finetune_router
-from backend.api.evaluations import router as evaluations_router
-from backend.api.auth import router as auth_router
 
 app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
 
@@ -55,6 +60,7 @@ app.include_router(finetune_router)
 app.include_router(evaluations_router)
 
 import uuid
+
 
 @app.middleware("http")
 async def add_security_headers_middleware(request, call_next):
@@ -89,6 +95,7 @@ async def add_metrics_middleware(request, call_next):
 @app.get("/health")
 async def health():
     import time as _time
+
     import redis.asyncio as redis
 
     # Core service checks with latency

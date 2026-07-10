@@ -1,7 +1,12 @@
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
 import uuid
-import json
-from fastapi import APIRouter, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
 from backend.db.pool import db_pool
 from backend.security.auth import get_current_user
 

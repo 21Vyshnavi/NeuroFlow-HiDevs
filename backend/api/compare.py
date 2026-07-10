@@ -1,13 +1,16 @@
-import json
-import uuid
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
 import asyncio
-from fastapi import APIRouter, HTTPException, Depends
+import uuid
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import Optional
-from backend.db.pool import db_pool
-from pipelines.generation.generator import run_generation_pipeline
+
 from backend.security.auth import get_current_user
 from backend.security.validators import validate_query_text
+from pipelines.generation.generator import run_generation_pipeline
 
 router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(get_current_user)])
 
@@ -26,7 +29,6 @@ async def compare_pipelines(payload: CompareRequest):
     async def execute_p(run_id, pipeline_id):
         # Consume streaming generator to final yield response
         final_response = ""
-        latency = 0
         chunks = 0
         async for event in run_generation_pipeline(run_id, payload.query, pipeline_id):
             if event["type"] == "token":

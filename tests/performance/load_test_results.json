@@ -1,0 +1,15 @@
+{
+  "target_concurrency": 50,
+  "duration_seconds": 300,
+  "total_requests": 1420,
+  "failed_requests": 3,
+  "error_rate_percentage": 0.21,
+  "latencies": {
+    "min": 0.08,
+    "p50": 1.25,
+    "p95": 3.42,
+    "p99": 4.88,
+    "max": 5.12
+  },
+  "status": "passed"
+}

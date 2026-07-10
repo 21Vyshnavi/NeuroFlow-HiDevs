@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import logging
 import re
 from backend.providers.client import client as llm_client

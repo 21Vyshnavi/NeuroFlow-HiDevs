@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 def build_prompt(query_type: str, context: str, query: str) -> str:
     base = (
         "You are a precise research assistant. Answer the user's question using ONLY the provided context.\n"

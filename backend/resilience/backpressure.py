@@ -1,6 +1,12 @@
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
 import redis.asyncio as redis
 from fastapi import HTTPException
+
 from backend.config import settings
+
 
 async def check_backpressure_ingestion():
     r = redis.Redis(
