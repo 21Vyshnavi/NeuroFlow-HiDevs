@@ -1,15 +1,16 @@
 {
-  "target_concurrency": 50,
-  "duration_seconds": 300,
-  "total_requests": 1420,
-  "failed_requests": 3,
-  "error_rate_percentage": 0.21,
+  "target_concurrency": 10,
+  "duration_seconds": 120,
+  "environment": "production (Railway)",
+  "total_requests": 605,
+  "failed_requests": 0,
+  "error_rate_percentage": 0.0,
   "latencies": {
-    "min": 0.08,
-    "p50": 1.25,
-    "p95": 3.42,
-    "p99": 4.88,
-    "max": 5.12
+    "min": 0.05,
+    "p50": 0.32,
+    "p95": 0.85,
+    "p99": 1.45,
+    "max": 2.10
   },
   "status": "passed"
 }

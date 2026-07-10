@@ -1,5 +1,7 @@
 # NeuroFlow
 
+**Live Demo (Railway):** [https://neuroflow-production.up.railway.app](https://neuroflow-production.up.railway.app)
+*(Note: Requires valid API keys in environment to process generation requests)*
 NeuroFlow is a production-oriented Retrieval-Augmented Generation (RAG) platform. It ingests
 heterogeneous documents (PDF, DOCX, images, CSV, web URLs), retrieves relevant context through a
 hybrid search + reranking pipeline, generates grounded answers via a routed set of LLMs,
