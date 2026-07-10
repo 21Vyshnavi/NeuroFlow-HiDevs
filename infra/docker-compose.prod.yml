@@ -1,0 +1,312 @@
+# =============================================================================
+# NeuroFlow — Production Docker Compose
+# Usage:
+#   docker compose -f infra/docker-compose.prod.yml up --build -d
+#
+# Prerequisites:
+#   - Copy .env.example → .env and fill in secrets
+#   - Generate self-signed TLS cert (or supply Let's Encrypt certs):
+#       mkdir -p infra/nginx/certs
+#       openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#         -keyout infra/nginx/certs/server.key \
+#         -out    infra/nginx/certs/server.crt \
+#         -subj   "/C=US/ST=Local/L=Local/O=NeuroFlow/CN=localhost"
+# =============================================================================
+
+version: '3.9'
+
+# ---------------------------------------------------------------------------
+# Shared networking
+# ---------------------------------------------------------------------------
+networks:
+  neuroflow:
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Named volumes
+# ---------------------------------------------------------------------------
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # ── PostgreSQL with pgvector ──────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    networks: [neuroflow]
+    environment:
+      POSTGRES_DB:       neuroflow
+      POSTGRES_USER:     neuroflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../infra/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neuroflow -d neuroflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '2.0'
+        reservations:
+          memory: 256m
+    security_opt: ["no-new-privileges:true"]
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [neuroflow]
+    command: >
+      redis-server
+        --requirepass ${REDIS_PASSWORD}
+        --maxmemory 400mb
+        --maxmemory-policy allkeys-lru
+        --save ""
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    security_opt: ["no-new-privileges:true"]
+
+  # ── MLflow ────────────────────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/neuroflow
+        --default-artifact-root /mlflow/artifacts
+    volumes:
+      - ./mlflow/artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── API (2 replicas, hardened) ────────────────────────────────────────────
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: runtime
+    image: neuroflow-api:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    env_file: ../.env
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+        reservations:
+          memory: 256m
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # ── Async worker (2 replicas, higher resource budget for ML) ─────────────
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: runtime
+    image: neuroflow-api:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    command: ["python", "-m", "worker"]
+    env_file: ../.env
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 2g
+          cpus: '2.0'
+        reservations:
+          memory: 512m
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # ── Next.js Frontend ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      target: runtime
+    image: neuroflow-frontend:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    environment:
+      - NEXT_PUBLIC_API_URL=http://nginx/api
+      - NODE_ENV=production
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Nginx edge proxy (load balancer + SSL termination) ───────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    networks: [neuroflow]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+      - frontend
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    security_opt: ["no-new-privileges:true"]
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://localhost/grafana
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on: [prometheus]
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    security_opt: ["no-new-privileges:true"]
+
+  # ── Jaeger distributed tracing ────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    networks: [neuroflow]
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+    security_opt: ["no-new-privileges:true"]
