@@ -1,14 +1,10 @@
 # NeuroFlow
 
-**Live Demo (Ngrok):** [https://vacant-natural-shrimp.ngrok-free.dev](https://vacant-natural-shrimp.ngrok-free.dev)
-*(Note: Requires valid API keys in environment to process generation requests. Link may be offline if the local server is stopped.)*
 
 NeuroFlow is a production-oriented Retrieval-Augmented Generation (RAG) platform. It ingests heterogeneous documents (PDF, DOCX, images, CSV, web URLs), retrieves relevant context through a hybrid search + reranking pipeline, generates grounded answers via a routed set of LLMs, continuously evaluates generation quality with an LLM-as-judge framework, and closes the loop by fine-tuning smaller models on its own highest-quality traffic.
 
 ## Architecture
 
-![NeuroFlow Architecture](docs/architecture.png)
-*(See `docs/architecture.md` for detailed data flow diagrams)*
 
 - **Ingestion**: Multi-modal document intake, chunking, embedding, and vector store writes.
 - **Retrieval**: Hybrid (vector + keyword + metadata) search, Reciprocal Rank Fusion, and cross-encoder reranking.
