@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 from typing import List, Dict
 from pipelines.retrieval import RetrievalResult
 

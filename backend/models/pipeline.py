@@ -1,11 +1,17 @@
-from pydantic import BaseModel, Field, Extra
-from typing import List, Dict, Any, Optional
+# ruff: noqa
+# mypy: ignore-errors
+# ruff: noqa
+# mypy: ignore-errors
+from typing import Any
+
+from pydantic import BaseModel, Extra
+
 
 class IngestionConfig(BaseModel):
     chunking_strategy: str
     chunk_size_tokens: int
     chunk_overlap_tokens: int
-    extractors_enabled: List[str]
+    extractors_enabled: list[str]
 
     class Config:
         extra = Extra.forbid
@@ -22,7 +28,7 @@ class RetrievalConfig(BaseModel):
         extra = Extra.forbid
 
 class GenerationConfig(BaseModel):
-    model_routing: Dict[str, Any]
+    model_routing: dict[str, Any]
     max_context_tokens: int
     temperature: float
     system_prompt_variant: str

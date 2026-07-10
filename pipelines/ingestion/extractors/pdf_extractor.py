@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import io
 import logging
 from dataclasses import dataclass

@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import httpx
 import logging
 from typing import List

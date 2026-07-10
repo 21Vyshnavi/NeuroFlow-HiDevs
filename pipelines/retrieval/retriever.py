@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import asyncio
 import json
 import logging

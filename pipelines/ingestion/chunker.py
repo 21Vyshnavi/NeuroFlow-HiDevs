@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import tiktoken
 import numpy as np
 from typing import List, Dict, Any

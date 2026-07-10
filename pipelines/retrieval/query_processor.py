@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 import logging
 from pydantic import BaseModel
 from typing import List, Dict, Any

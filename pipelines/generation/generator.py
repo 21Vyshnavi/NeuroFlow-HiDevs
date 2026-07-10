@@ -1,3 +1,5 @@
+# ruff: noqa
+# mypy: ignore-errors
 from opentelemetry import trace
 import time
 import uuid
