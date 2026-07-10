@@ -37,18 +37,35 @@ from backend.api.rating import router as rating_router
 from backend.api.compare import router as compare_router
 from backend.api.pipelines import router as pipelines_router
 from backend.api.finetune import router as finetune_router
+from backend.api.evaluations import router as evaluations_router
+from backend.api.auth import router as auth_router
 
 app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
 
 # Instrument FastAPI App with OpenTelemetry
 FastAPIInstrumentor.instrument_app(app)
 
+app.include_router(auth_router)
 app.include_router(ingest_router)
 app.include_router(query_router)
 app.include_router(rating_router)
 app.include_router(compare_router)
 app.include_router(pipelines_router)
 app.include_router(finetune_router)
+app.include_router(evaluations_router)
+
+import uuid
+
+@app.middleware("http")
+async def add_security_headers_middleware(request, call_next):
+    request_id = str(uuid.uuid4())
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 
 

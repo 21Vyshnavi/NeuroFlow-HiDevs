@@ -68,6 +68,20 @@ async def process_document_job(document_id: str, file_path: str, source_type: st
                 chunks = await chunk_extracted_pages(pages, source_type, page_count)
             span.set_attribute("chunk_count", len(chunks))
 
+            # Scan and redact secrets & check for prompt injection patterns
+            from backend.security.secret_detector import scan_and_redact_secrets
+            from backend.security.prompt_injection import scan_pattern_injection
+
+            for chunk in chunks:
+                # 1. Redact secrets
+                redacted, redactions = scan_and_redact_secrets(chunk.content, document_id=document_id)
+                chunk.content = redacted
+                
+                # 2. Check prompt injection pattern
+                injection_result = scan_pattern_injection(chunk.content)
+                if injection_result:
+                    chunk.metadata.update(injection_result)
+
             # Batch Generate Embeddings
             chunk_contents = [c.content for c in chunks]
             embeddings = []

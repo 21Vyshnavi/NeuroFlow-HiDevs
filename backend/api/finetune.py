@@ -1,14 +1,15 @@
 import os
 import json
 import uuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from backend.db.pool import db_pool
 from pipelines.finetuning.extractor import extract_training_pairs
 from pipelines.finetuning.job_manager import submit_finetuning_job
+from backend.security.auth import ScopeRequired
 
-router = APIRouter(prefix="/finetune", tags=["finetuning"])
+router = APIRouter(prefix="/finetune", tags=["finetuning"], dependencies=[Depends(ScopeRequired("admin"))])
 
 class FineTuneRequest(BaseModel):
     base_model: str = "gpt-4o-mini"

@@ -1,13 +1,15 @@
 import json
 import uuid
 import asyncio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from backend.db.pool import db_pool
 from pipelines.generation.generator import run_generation_pipeline
+from backend.security.auth import get_current_user
+from backend.security.validators import validate_query_text
 
-router = APIRouter(prefix="/pipelines", tags=["pipelines"])
+router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(get_current_user)])
 
 class CompareRequest(BaseModel):
     query: str
@@ -16,6 +18,8 @@ class CompareRequest(BaseModel):
 
 @router.post("/compare")
 async def compare_pipelines(payload: CompareRequest):
+    # Validate query
+    payload.query = validate_query_text(payload.query)
     run_id_a = str(uuid.uuid4())
     run_id_b = str(uuid.uuid4())
 

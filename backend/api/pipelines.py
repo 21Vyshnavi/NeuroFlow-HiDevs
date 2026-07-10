@@ -1,18 +1,26 @@
 import json
 import uuid
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from backend.db.pool import db_pool
 from backend.models.pipeline import PipelineConfigModel
+from backend.security.auth import get_current_user, ScopeRequired
+from backend.security.validators import validate_pipeline_name
 
-router = APIRouter(prefix="/pipelines", tags=["pipelines"])
+router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(get_current_user)])
 
 @router.post("")
-async def create_pipeline(config: PipelineConfigModel):
+async def create_pipeline(
+    config: PipelineConfigModel,
+    _user = Depends(ScopeRequired("admin"))
+):
     pool = db_pool.get_pool()
     if not pool:
         raise HTTPException(status_code=500, detail="Database offline.")
+
+    # Validate name
+    config.name = validate_pipeline_name(config.name)
 
     pipeline_id = uuid.uuid4()
     async with pool.acquire() as conn:

@@ -10,4 +10,10 @@ opentelemetry-exporter-otlp
 prometheus-client
 python-dotenv
 httpx
+python-jose[cryptography]
+bleach
+detect-secrets
+python-magic
 opentelemetry-exporter-prometheus
+aiofiles
+sse-starlette
