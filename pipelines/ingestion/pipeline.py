@@ -45,61 +45,86 @@ async def process_document_job(document_id: str, file_path: str, source_type: st
                     return
 
             # Extract content based on modality
-            pages = []
-            if source_type == "pdf":
-                pages = await extract_pdf(file_bytes)
-            elif source_type == "docx":
-                pages = await extract_docx(file_bytes)
-            elif source_type == "image":
-                pages = await extract_image(file_bytes)
-            elif source_type == "csv":
-                pages = await extract_csv(file_bytes)
-            elif source_type == "url":
-                pages = await extract_url(url)
-            else:
-                pages = [ExtractedPage(page_number=1, content=file_bytes.decode('utf-8', errors='ignore'), content_type="text", metadata={})]
+            with tracer.start_as_current_span(f"ingestion.extract.{source_type}"):
+                pages = []
+                if source_type == "pdf":
+                    pages = await extract_pdf(file_bytes)
+                elif source_type == "docx":
+                    pages = await extract_docx(file_bytes)
+                elif source_type == "image":
+                    pages = await extract_image(file_bytes)
+                elif source_type == "csv":
+                    pages = await extract_csv(file_bytes)
+                elif source_type == "url":
+                    pages = await extract_url(url)
+                else:
+                    pages = [ExtractedPage(page_number=1, content=file_bytes.decode('utf-8', errors='ignore'), content_type="text", metadata={})]
 
             page_count = len(pages)
             span.set_attribute("page_count", page_count)
 
             # Segment pages into chunks
-            chunks = await chunk_extracted_pages(pages, source_type, page_count)
+            with tracer.start_as_current_span("ingestion.chunk"):
+                chunks = await chunk_extracted_pages(pages, source_type, page_count)
             span.set_attribute("chunk_count", len(chunks))
+
+            # Scan and redact secrets & check for prompt injection patterns
+            from backend.security.secret_detector import scan_and_redact_secrets
+            from backend.security.prompt_injection import scan_pattern_injection
+
+            for chunk in chunks:
+                # 1. Redact secrets
+                redacted, redactions = scan_and_redact_secrets(chunk.content, document_id=document_id)
+                chunk.content = redacted
+                
+                # 2. Check prompt injection pattern
+                injection_result = scan_pattern_injection(chunk.content)
+                if injection_result:
+                    chunk.metadata.update(injection_result)
 
             # Batch Generate Embeddings
             chunk_contents = [c.content for c in chunks]
             embeddings = []
             if chunk_contents:
-                try:
-                    embeddings = await llm_client.embed(chunk_contents)
-                    span.set_attribute("embedding_calls", len(chunk_contents))
-                except Exception as e:
-                    logger.error(f"Failed to generate embeddings: {e}")
-                    # Provide dummy fallback embeddings (1536 zero floats)
-                    embeddings = [[0.0] * 1536 for _ in chunk_contents]
+                with tracer.start_as_current_span("ingestion.embed"):
+                    try:
+                        embeddings = await llm_client.embed(chunk_contents)
+                        span.set_attribute("embedding_calls", len(chunk_contents))
+                    except Exception as e:
+                        logger.error(f"Failed to generate embeddings: {e}")
+                        # Provide dummy fallback embeddings (1536 zero floats)
+                        embeddings = [[0.0] * 1536 for _ in chunk_contents]
 
             # Save chunks to PostgreSQL
-            async with conn.transaction():
-                for idx, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            with tracer.start_as_current_span("ingestion.write_db"):
+                async with conn.transaction():
+                    for idx, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+                        await conn.execute(
+                            """
+                            INSERT INTO chunks (document_id, content, embedding, chunk_index, token_count, metadata)
+                            VALUES ($1, $2, $3, $4, $5, $6)
+                            """,
+                            document_id,
+                            chunk.content,
+                            emb,
+                            chunk.chunk_index,
+                            chunk.token_count,
+                            json.dumps(chunk.metadata)
+                        )
+
+                    # Update Document Record
                     await conn.execute(
-                        """
-                        INSERT INTO chunks (document_id, content, embedding, chunk_index, token_count, metadata)
-                        VALUES ($1, $2, $3, $4, $5, $6)
-                        """,
+                        "UPDATE documents SET status = 'complete', chunk_count = $2 WHERE id = $1",
                         document_id,
-                        chunk.content,
-                        emb,
-                        chunk.chunk_index,
-                        chunk.token_count,
-                        json.dumps(chunk.metadata)
+                        len(chunks)
                     )
 
-                # Update Document Record
-                await conn.execute(
-                    "UPDATE documents SET status = 'complete', chunk_count = $2 WHERE id = $1",
-                    document_id,
-                    len(chunks)
-                )
+        # Update metrics
+        try:
+            from backend.monitoring.metrics import ingestion_docs_total
+            ingestion_docs_total.labels(source_type=source_type).inc()
+        except ImportError:
+            pass
 
         duration = (time.time() - start_time) * 1000
         logger.info(json.dumps({

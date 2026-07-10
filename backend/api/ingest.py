@@ -28,12 +28,17 @@ async def enqueue_ingestion(payload: dict):
     await r.lpush("queue:ingest", json.dumps(payload))
     await r.aclose()
 
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from backend.security.auth import ScopeRequired
+from backend.security.validators import validate_url, validate_file_type, sanitize_text
+
 @router.post("")
 async def ingest_file_or_url(
     file: Optional[UploadFile] = File(None),
     url: Optional[str] = Form(None),
     pipeline_id: Optional[str] = Form(None),
-    metadata: Optional[str] = Form(None)
+    metadata: Optional[str] = Form(None),
+    _user = Depends(ScopeRequired("ingest"))
 ):
     pool = db_pool.get_pool()
     if not pool:
@@ -43,7 +48,9 @@ async def ingest_file_or_url(
     meta_dict = {}
     if metadata:
         try:
-            meta_dict = json.loads(metadata)
+            # Strip HTML from metadata input
+            sanitized_meta = sanitize_text(metadata)
+            meta_dict = json.loads(sanitized_meta)
         except Exception:
             pass
 
@@ -53,6 +60,10 @@ async def ingest_file_or_url(
 
     if file:
         file_bytes = await file.read()
+        
+        # File type validation with magic bytes
+        validate_file_type(file_bytes, file.filename)
+        
         content_hash = hashlib.sha256(file_bytes).hexdigest()
         
         # Deduplication check
@@ -79,6 +90,9 @@ async def ingest_file_or_url(
             await f.write(file_bytes)
 
     elif url:
+        # Validate URL to prevent SSRF
+        validate_url(url)
+        
         content_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
         source_type = "url"
         
