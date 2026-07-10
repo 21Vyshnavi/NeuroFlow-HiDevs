@@ -1,0 +1,144 @@
+# =============================================================================
+# Security workflow — Trivy container image scanning
+# Runs on every push to main and on every pull request.
+# Fails the build if any CRITICAL vulnerabilities are found.
+# =============================================================================
+name: Security Scan
+
+on:
+  push:
+    branches: [main, task-15]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and scan the API image
+  # ---------------------------------------------------------------------------
+  scan-api:
+    name: Trivy — API Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # needed to upload SARIF to GitHub Security tab
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: runtime
+          tags: neuroflow-api:latest
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy scan (CRITICAL — fail on findings)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuroflow-api:latest
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Run Trivy scan (SARIF — upload to GitHub Security)
+        if: always()   # upload even if the table scan fails
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuroflow-api:latest
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api
+
+  # ---------------------------------------------------------------------------
+  # Build and scan the Frontend image
+  # ---------------------------------------------------------------------------
+  scan-frontend:
+    name: Trivy — Frontend Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Frontend image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          target: runtime
+          tags: neuroflow-frontend:latest
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy scan (CRITICAL — fail on findings)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuroflow-frontend:latest
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Run Trivy scan (SARIF — upload to GitHub Security)
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: neuroflow-frontend:latest
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
+
+  # ---------------------------------------------------------------------------
+  # Filesystem / repo scanning for secrets and misconfigs
+  # ---------------------------------------------------------------------------
+  scan-repo:
+    name: Trivy — Repo Filesystem Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan filesystem for secrets and misconfigs
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+          scanners: secret,misconfig
