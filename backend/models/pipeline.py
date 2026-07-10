@@ -12,6 +12,7 @@ class IngestionConfig(BaseModel):
     chunk_size_tokens: int
     chunk_overlap_tokens: int
     extractors_enabled: list[str]
+    semantic_boundary_split: bool = False
 
     class Config:
         extra = Extra.forbid
@@ -23,6 +24,8 @@ class RetrievalConfig(BaseModel):
     top_k_after_rerank: int
     query_expansion: bool
     metadata_filters_enabled: bool
+    hnsw_ef_search: int = 100
+    rrf_dense_weight: float = 0.5
 
     class Config:
         extra = Extra.forbid
@@ -32,6 +35,8 @@ class GenerationConfig(BaseModel):
     max_context_tokens: int
     temperature: float
     system_prompt_variant: str
+    use_short_prompt: bool = False
+    semantic_cache_ttl_seconds: int = 0
 
     class Config:
         extra = Extra.forbid
