@@ -92,7 +92,11 @@ async def list_evaluations(
     """
     params.extend([limit, offset])
 
-    async with db_pool.pool.acquire() as conn:
+    pool = db_pool.get_pool()
+    if not pool:
+        return {"evaluations": [], "total": 0}
+
+    async with pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
 
     results = []
