@@ -32,6 +32,12 @@ async def lifespan(app: FastAPI):
     # Startup actions
     await db_pool.connect()
     await run_migrations()
+    
+    # Start background retention job (mocked scheduling)
+    import asyncio
+    from backend.tasks.retention import run_data_retention
+    asyncio.create_task(run_data_retention())
+    
     yield
     # Shutdown actions
     await db_pool.disconnect()
@@ -45,7 +51,21 @@ from backend.api.pipelines import router as pipelines_router
 from backend.api.query import router as query_router
 from backend.api.rating import router as rating_router
 
-app = FastAPI(title="NeuroFlow API", lifespan=lifespan)
+app = FastAPI(
+    title="NeuroFlow API", 
+    description="""
+NeuroFlow is a Production Multi-Modal LLM Orchestration Platform.
+This API provides endpoints for:
+* **Ingestion**: Uploading files (PDF, DOCX) and extracting content.
+* **Querying**: RAG generation with citations and fallback routing.
+* **Evaluations**: Real-time LLM-as-judge scoring.
+* **Pipelines**: Named configuration profiles for A/B testing RAG strategies.
+* **Fine-Tuning**: Extracting high-quality traces to fine-tune specialized LLMs.
+""",
+    version="1.0.0",
+    summary="Production RAG Platform API",
+    lifespan=lifespan
+)
 
 # Instrument FastAPI App with OpenTelemetry
 FastAPIInstrumentor.instrument_app(app)
