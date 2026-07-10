@@ -1,7 +1,7 @@
 # NeuroFlow
 
-**Live Demo (Railway):** [https://neuroflow-hidevs.up.railway.app](https://neuroflow-hidevs.up.railway.app)
-*(Note: Requires valid API keys in environment to process generation requests. This is a placeholder URL until deployed.)*
+**Live Demo (Ngrok):** [https://vacant-natural-shrimp.ngrok-free.dev](https://vacant-natural-shrimp.ngrok-free.dev)
+*(Note: Requires valid API keys in environment to process generation requests. Link may be offline if the local server is stopped.)*
 
 NeuroFlow is a production-oriented Retrieval-Augmented Generation (RAG) platform. It ingests heterogeneous documents (PDF, DOCX, images, CSV, web URLs), retrieves relevant context through a hybrid search + reranking pipeline, generates grounded answers via a routed set of LLMs, continuously evaluates generation quality with an LLM-as-judge framework, and closes the loop by fine-tuning smaller models on its own highest-quality traffic.
 
